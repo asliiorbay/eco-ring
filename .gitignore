@@ -21,3 +21,6 @@ __pycache__/
 
 # Logs
 *.log
+
+# Large generated data files — regenerate with simulator.py, not needed at runtime
+data/demand_log.csv

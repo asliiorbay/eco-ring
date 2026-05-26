@@ -77,6 +77,7 @@ RINGS = {
                   "S22", "S23", "S24", "S25", "S13", "S14", "S15", "S16", "S05", "S04",
                   "S03", "S02"],
         "operating_days": "weekday",
+        "active_days": [0, 1, 2, 3, 4],
         "start_time": "09:00",
         "end_time": "17:35",
         "headway_minutes": 20,
@@ -88,6 +89,7 @@ RINGS = {
         "route": ["S01", "S17", "S18", "S19", "S23", "S24", "S25", "S13", "S14", "S15",
                   "S16", "S17", "S01"],
         "operating_days": "weekday",
+        "active_days": [0, 1, 2, 3, 4],
         "start_time": "08:00",
         "end_time": "20:00",
         "headway_minutes": 5,    # 5 min in morning, 12 min midday, 15 min evening (using rush hour as base)
@@ -98,8 +100,9 @@ RINGS = {
         "name_tr": "Turkuaz Ring",
         "route": ["S09", "S06", "S05", "S04", "S03"],
         "operating_days": "weekday",
-        "start_time": "08:25",
-        "end_time": "08:25",
+        "active_days": [0, 1, 2, 3, 4],
+        "start_time": "08:15",
+        "end_time": "08:30",
         "headway_minutes": None,  # single trip per day
         "schedule_type": "fixed",
     },
@@ -110,9 +113,10 @@ RINGS = {
                   "S20", "S21", "S22", "S23", "S24", "S25", "S13", "S14", "S15", "S16",
                   "S05", "S04", "S03"],
         "operating_days": "weekday",
-        "start_time": "08:05",
-        "end_time": "08:40",
-        "headway_minutes": 5,    # 8 trips in 35 minutes
+        "active_days": [0, 1, 2, 3, 4],
+        "start_time": "08:15",
+        "end_time": "08:25",
+        "headway_minutes": 5,    # 2 trips in 10 minutes
         "schedule_type": "interval",
     },
     "navy": {
@@ -122,6 +126,7 @@ RINGS = {
                   "S07", "S26", "S09", "S10", "S09", "S08", "S11", "S12", "S25", "S24",
                   "S20", "S21"],
         "operating_days": "weekday",
+        "active_days": [0, 1, 2, 3, 4],
         "start_time": "18:00",
         "end_time": "20:00",
         "headway_minutes": 30,
@@ -134,6 +139,7 @@ RINGS = {
                   "S14", "S15", "S16", "S06", "S07", "S26", "S09", "S10", "S09", "S08",
                   "S11", "S12", "S25", "S24", "S27", "S19", "S01"],
         "operating_days": "weekday",
+        "active_days": [0, 1, 2, 3, 4],
         "start_time": "20:30",
         "end_time": "00:30",
         "headway_minutes": 40,
@@ -146,6 +152,7 @@ RINGS = {
                   "S18", "S19", "S20", "S21", "S22", "S01", "S17", "S18", "S19", "S24",
                   "S25", "S11", "S09", "S07", "S06", "S05", "S17", "S03", "S02"],
         "operating_days": "weekend",
+        "active_days": [5, 6],
         "start_time": "08:30",
         "end_time": "18:30",
         "headway_minutes": 60,   # 11 trips across 10 hours
@@ -158,6 +165,7 @@ RINGS = {
                   "S20", "S21", "S22", "S23", "S01", "S17", "S18", "S19", "S24", "S25",
                   "S11", "S08", "S09", "S10", "S07", "S06", "S05", "S17", "S03", "S02"],
         "operating_days": "weekend",
+        "active_days": [5, 6],
         "start_time": "19:30",
         "end_time": "23:30",
         "headway_minutes": 60,   # 5 trips across 4 hours
@@ -192,13 +200,7 @@ def get_stop_type(stop_id):
 
 def is_ring_active_on(ring_id, weekday):
     """Check if a ring operates on a given weekday (0=Monday, 6=Sunday)."""
-    days = RINGS[ring_id]["operating_days"]
-    is_weekend = weekday >= 5
-    if days == "weekday":
-        return not is_weekend
-    elif days == "weekend":
-        return is_weekend
-    return True  # "both"
+    return weekday in RINGS[ring_id]["active_days"]
 
 
 # ============================================================================

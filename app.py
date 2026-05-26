@@ -26,6 +26,7 @@ import os
 import random
 import sqlite3
 from collections import Counter
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
@@ -63,6 +64,20 @@ RING_DISPLAY_NAMES = {
 }
 
 # ============================================================================
+# Timezone helper — Streamlit Cloud runs on UTC; ring schedules and display
+# times must reflect Europe/Istanbul (UTC+3).
+# ============================================================================
+
+TR_TZ = ZoneInfo("Europe/Istanbul")
+
+
+def now_tr() -> datetime.datetime:
+    """Current time in Türkiye timezone, tzinfo stripped for compatibility
+    with existing timedelta arithmetic and naive-datetime comparisons."""
+    return datetime.datetime.now(TR_TZ).replace(tzinfo=None)
+
+
+# ============================================================================
 # Database helpers
 # Each function opens and closes its own connection — safe for SQLite under
 # Streamlit's multi-threaded serving model.
@@ -85,7 +100,7 @@ def init_db() -> None:
 def log_press(stop_id: str, stop_name: str) -> None:
     """Record a button press in session_state (in-memory, cloud-safe)."""
     st.session_state.presses.append({
-        "timestamp": datetime.datetime.now(),
+        "timestamp": now_tr(),
         "stop_id":   stop_id,
         "stop_name": stop_name,
     })
@@ -101,7 +116,7 @@ def log_press(stop_id: str, stop_name: str) -> None:
 
 def get_recent_presses() -> pd.DataFrame:
     """All button presses in the last 30 minutes, newest first."""
-    cutoff = (datetime.datetime.now() - datetime.timedelta(minutes=30)).strftime(
+    cutoff = (now_tr() - datetime.timedelta(minutes=30)).strftime(
         "%Y-%m-%dT%H:%M:%S"
     )
     with sqlite3.connect(DB_PATH) as conn:
@@ -116,7 +131,7 @@ def get_recent_presses() -> pd.DataFrame:
 
 def get_today_presses() -> pd.DataFrame:
     """All button presses since midnight today."""
-    today_start = datetime.date.today().isoformat() + "T00:00:00"
+    today_start = now_tr().date().isoformat() + "T00:00:00"
     with sqlite3.connect(DB_PATH) as conn:
         df = pd.read_sql_query(
             "SELECT id, timestamp, stop_id, stop_name FROM button_presses "
@@ -134,7 +149,7 @@ def get_today_presses() -> pd.DataFrame:
 def make_demo_presses(n: int = 30) -> pd.DataFrame:
     """Generate synthetic button presses for testing. The real DB is untouched."""
     stop_ids = list(STOPS.keys())
-    now      = datetime.datetime.now()
+    now      = now_tr()
     rows     = []
     for i in range(n):
         sid = random.choice(stop_ids)
@@ -222,7 +237,7 @@ def page_student() -> None:
     """, unsafe_allow_html=True)
 
     # ── 1–4. Logo + title + subtitle + date — ONE block, ONE alignment context ─
-    _date_str = datetime.datetime.now().strftime("%A, %B %d · %H:%M")
+    _date_str = now_tr().strftime("%A, %B %d · %H:%M")
     st.markdown(
         f"""
         <div style="
@@ -367,7 +382,7 @@ def page_operator() -> None:
         st.warning("⚠ Demo mode ON — showing synthetic data, not live database.")
 
     # ── Gather AI predictions (needed for banner, KPI cards, and ring cards) ──
-    now_real: datetime.datetime = datetime.datetime.now()
+    now_real: datetime.datetime = now_tr()
     mapped                      = map_to_training_date(now_real)
     ai_error: str | None        = None
     per_stop_preds: dict        = {}
@@ -418,7 +433,7 @@ def page_operator() -> None:
         recent_df = make_demo_presses(n=random.randint(20, 40))
         today_df  = make_demo_presses(n=random.randint(60, 120))
     else:
-        _now          = datetime.datetime.now()
+        _now          = now_tr()
         _cutoff_30    = _now - datetime.timedelta(minutes=30)
         _today_start  = _now.replace(hour=0, minute=0, second=0, microsecond=0)
         _all          = st.session_state.presses

@@ -83,14 +83,20 @@ def init_db() -> None:
 
 
 def log_press(stop_id: str, stop_name: str) -> None:
-    """Insert one button-press row with the current local timestamp."""
-    ts = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            "INSERT INTO button_presses (timestamp, stop_id, stop_name) VALUES (?, ?, ?)",
-            (ts, stop_id, stop_name),
-        )
-        conn.commit()
+    """Record a button press in session_state (in-memory, cloud-safe)."""
+    st.session_state.presses.append({
+        "timestamp": datetime.datetime.now(),
+        "stop_id":   stop_id,
+        "stop_name": stop_name,
+    })
+    # SQLite fallback — commented out (unreliable on Streamlit Community Cloud):
+    # ts = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    # with sqlite3.connect(DB_PATH) as conn:
+    #     conn.execute(
+    #         "INSERT INTO button_presses (timestamp, stop_id, stop_name) VALUES (?, ?, ?)",
+    #         (ts, stop_id, stop_name),
+    #     )
+    #     conn.commit()
 
 
 def get_recent_presses() -> pd.DataFrame:
@@ -407,12 +413,34 @@ def page_operator() -> None:
     """, unsafe_allow_html=True)
 
     # ── Load button-press data ────────────────────────────────────────────────
+    _EMPTY_DF = pd.DataFrame(columns=["timestamp", "stop_id", "stop_name"])
     if demo_on:
         recent_df = make_demo_presses(n=random.randint(20, 40))
         today_df  = make_demo_presses(n=random.randint(60, 120))
     else:
-        recent_df = get_recent_presses()
-        today_df  = get_today_presses()
+        _now          = datetime.datetime.now()
+        _cutoff_30    = _now - datetime.timedelta(minutes=30)
+        _today_start  = _now.replace(hour=0, minute=0, second=0, microsecond=0)
+        _all          = st.session_state.presses
+
+        _recent_rows  = [p for p in _all if p["timestamp"] >= _cutoff_30]
+        _today_rows   = [p for p in _all if p["timestamp"] >= _today_start]
+
+        recent_df = (
+            pd.DataFrame(_recent_rows)
+            .sort_values("timestamp", ascending=False)
+            .reset_index(drop=True)
+        ) if _recent_rows else _EMPTY_DF.copy()
+
+        today_df = (
+            pd.DataFrame(_today_rows)
+            .sort_values("timestamp", ascending=False)
+            .reset_index(drop=True)
+        ) if _today_rows else _EMPTY_DF.copy()
+
+        # SQLite fallback — commented out:
+        # recent_df = get_recent_presses()
+        # today_df  = get_today_presses()
 
     # ── KPI CARDS ────────────────────────────────────────────────────────────
     total_today = len(today_df)
@@ -670,7 +698,7 @@ def page_operator() -> None:
     st.markdown("### Recent button presses (last 30 min)")
 
     if recent_df.empty:
-        st.info("No button presses recorded in the last 30 minutes.")
+        st.info("No button presses yet. Tap the button on the Ring User page to log a press.")
     else:
         display_df          = recent_df.copy()
         display_df["rings"] = display_df["stop_id"].apply(
@@ -695,7 +723,12 @@ def main() -> None:
         layout="centered",
         initial_sidebar_state="auto",
     )
-    init_db()
+
+    # In-memory press log — persists across page switches within the same browser session.
+    if "presses" not in st.session_state:
+        st.session_state.presses = []
+
+    # init_db()  # SQLite disabled — unreliable on Streamlit Community Cloud
 
     st.sidebar.markdown("### Choose Dashboard")
     page = st.sidebar.radio(
